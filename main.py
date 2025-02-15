@@ -3,32 +3,28 @@ from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
 
 app = Flask(__name__)
-# Configuração para usar o SQLite
+
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///library.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# MODELOS
 
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(100), unique=True, nullable=False)
-    # Relacionamento com Borrow (um usuário pode ter vários empréstimos)
     borrowed_books = db.relationship('Borrow', backref='user', lazy=True)
 
 class Author(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    # Relacionamento com Book (um autor pode ter vários livros)
     books = db.relationship('Book', backref='author', lazy=True)
 
 class Book(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
     author_id = db.Column(db.Integer, db.ForeignKey('author.id'), nullable=False)
-    # Relacionamento com Borrow (um livro pode ter vários registros de empréstimo)
     borrows = db.relationship('Borrow', backref='book', lazy=True)
 
 class Borrow(db.Model):
@@ -37,7 +33,6 @@ class Borrow(db.Model):
     book_id = db.Column(db.Integer, db.ForeignKey('book.id'), nullable=False)
     borrow_date = db.Column(db.DateTime, default=datetime.utcnow)
 
-# ROTAS CRUD PARA USUÁRIOS
 
 @app.route('/users', methods=['POST'])
 def create_user():
@@ -46,7 +41,6 @@ def create_user():
     email = data.get('email')
     if not name or not email:
         return jsonify({'error': 'Name and email are required'}), 400
-    # Verifica se o email já existe
     if User.query.filter_by(email=email).first():
         return jsonify({'error': 'User with this email already exists'}), 400
     user = User(name=name, email=email)
@@ -81,7 +75,6 @@ def update_user(user_id):
     if name:
         user.name = name
     if email:
-        # Verifica se o novo email já está em uso por outro usuário
         existing_user = User.query.filter_by(email=email).first()
         if existing_user and existing_user.id != user_id:
             return jsonify({'error': 'Email already in use'}), 400
@@ -101,7 +94,6 @@ def delete_user(user_id):
     db.session.commit()
     return jsonify({'message': 'User deleted'})
 
-# ROTAS CRUD PARA AUTORES
 
 @app.route('/authors', methods=['POST'])
 def create_author():
@@ -132,7 +124,6 @@ def get_authors_books(author_id):
     output = [{'id': book.id, 'title': book.title} for book in books]
     return jsonify({'author': author.name, 'books': output})
 
-# ROTAS CRUD PARA LIVROS
 
 @app.route('/books', methods=['POST'])
 def create_book():
@@ -141,7 +132,6 @@ def create_book():
     author_id = data.get('author_id')
     if not title or not author_id:
         return jsonify({'error': 'Title and author_id are required'}), 400
-    # Verifica se o autor existe
     if not Author.query.get(author_id):
         return jsonify({'error': 'Author not found'}), 404
     book = Book(title=title, author_id=author_id)
@@ -175,7 +165,6 @@ def delete_book(book_id):
     db.session.commit()
     return jsonify({'message': 'Book deleted'})
 
-# ROTAS CRUD PARA EMPRÉSTIMOS (Borrow)
 
 @app.route('/borrow', methods=['POST'])
 def borrow_book():
@@ -184,7 +173,6 @@ def borrow_book():
     book_id = data.get('book_id')
     if not user_id or not book_id:
         return jsonify({'error': 'user_id and book_id are required'}), 400
-    # Verifica se usuário e livro existem
     if not User.query.get(user_id):
         return jsonify({'error': 'User not found'}), 404
     if not Book.query.get(book_id):
